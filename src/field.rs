@@ -99,7 +99,6 @@ fn binop(op: Operation, to: *mut FrElement, a: *const FrElement, b: *const FrEle
     constant.push(ca && cb);
 }
 
-
 #[allow(warnings)]
 pub unsafe fn Fr_div(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
     binop(Operation::Div, to, a, b);

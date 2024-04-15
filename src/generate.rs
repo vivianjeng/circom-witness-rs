@@ -155,11 +155,10 @@ pub fn get_constants() -> Vec<FrElement> {
 
         if typ & 0x80000000 == 0 {
             if sv < 0 {
-                constants[i] = field::constant(M-U256::from(-sv));
+                constants[i] = field::constant(M - U256::from(-sv));
             } else {
                 constants[i] = field::constant(U256::from(sv));
             }
-            
         } else {
             constants[i] =
                 field::constant(U256::from_le_bytes(buf).mul_redc(uint!(1_U256), M, INV));

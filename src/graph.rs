@@ -1,14 +1,14 @@
 use std::{
     collections::HashMap,
     ops::{BitAnd, Shl, Shr},
-    str::FromStr
+    str::FromStr,
 };
 
 use crate::field::M;
 use ark_bn254::Fr;
 use ark_ff::{BigInt, BigInteger256, PrimeField};
 use rand::Rng;
-use ruint::{aliases::U256};
+use ruint::aliases::U256;
 use serde::{Deserialize, Serialize};
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate};
@@ -109,7 +109,7 @@ impl Operation {
                 let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
                 let shift = compute_shr_uint(uint_a, uint_b);
                 Fr::from_str(shift.to_string().as_str()).unwrap()
-            },
+            }
             Band => {
                 let bigint_a: BigInteger256 = a.0.into();
                 let bigint_b: BigInteger256 = b.0.into();
@@ -119,7 +119,7 @@ impl Operation {
                 let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
                 let band = uint_a.bitand(uint_b);
                 Fr::from_str(band.to_string().as_str()).unwrap()
-            },
+            }
             Bor => {
                 let bigint_a: BigInteger256 = a.0.into();
                 let bigint_b: BigInteger256 = b.0.into();
@@ -129,7 +129,7 @@ impl Operation {
                 let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
                 let bor = BigInt::from(uint_a | uint_b);
                 Fr::from_str(bor.to_string().as_str()).unwrap()
-            },
+            }
             Bxor => {
                 let bigint_a: BigInteger256 = a.0.into();
                 let bigint_b: BigInteger256 = b.0.into();
@@ -139,7 +139,7 @@ impl Operation {
                 let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
                 let bxor = BigInt::from(uint_a ^ uint_b);
                 Fr::from_str(bxor.to_string().as_str()).unwrap()
-            },
+            }
             Shl => {
                 let bigint_a: BigInteger256 = a.0.into();
                 let bigint_b: BigInteger256 = b.0.into();
@@ -149,7 +149,7 @@ impl Operation {
                 let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
                 let div = compute_shl_uint(uint_a, uint_b);
                 Fr::from_str(div.to_string().as_str()).unwrap()
-            },
+            }
             Div => {
                 let bigint_a: BigInteger256 = a.0.into();
                 let bigint_b: BigInteger256 = b.0.into();
@@ -159,7 +159,7 @@ impl Operation {
                 let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
                 let shl = uint_a.mul_mod(uint_b.inv_mod(M).unwrap(), M);
                 Fr::from_str(shl.to_string().as_str()).unwrap()
-            },
+            }
             _ => unimplemented!("operator {:?} not implemented for Montgomery", self),
         }
     }
