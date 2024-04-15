@@ -1,13 +1,14 @@
 use std::{
     collections::HashMap,
     ops::{BitAnd, Shl, Shr},
+    str::FromStr
 };
 
 use crate::field::M;
 use ark_bn254::Fr;
-use ark_ff::PrimeField;
+use ark_ff::{BigInt, BigInteger256, PrimeField};
 use rand::Rng;
-use ruint::aliases::U256;
+use ruint::{aliases::U256};
 use serde::{Deserialize, Serialize};
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate};
@@ -47,6 +48,13 @@ pub enum Operation {
     Shl,
     Shr,
     Band,
+    Pow,
+    Idiv,
+    Bxor,
+    Bor,
+    Mod,
+    Land,
+    Div,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -75,6 +83,13 @@ impl Operation {
             Shl => compute_shl_uint(a, b),
             Shr => compute_shr_uint(a, b),
             Band => a.bitand(b),
+            Pow => a.pow_mod(b, M),
+            Idiv => U256::from(a.add_mod(U256::ZERO, M) / b.add_mod(U256::ZERO, M)),
+            Bxor => U256::from(a ^ b),
+            Bor => U256::from(a | b),
+            Mod => U256::from(a % b),
+            Land => U256::from(a != U256::ZERO && b != U256::ZERO),
+            Div => a.mul_mod(b.inv_mod(M).unwrap(), M),
             _ => unimplemented!("operator {:?} not implemented", self),
         }
     }
@@ -85,6 +100,66 @@ impl Operation {
             Add => a + b,
             Sub => a - b,
             Mul => a * b,
+            Shr => {
+                let bigint_a: BigInteger256 = a.0.into();
+                let bigint_b: BigInteger256 = b.0.into();
+                let string_a = bigint_a.to_string();
+                let string_b = bigint_b.to_string();
+                let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
+                let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
+                let shift = compute_shr_uint(uint_a, uint_b);
+                Fr::from_str(shift.to_string().as_str()).unwrap()
+            },
+            Band => {
+                let bigint_a: BigInteger256 = a.0.into();
+                let bigint_b: BigInteger256 = b.0.into();
+                let string_a = bigint_a.to_string();
+                let string_b = bigint_b.to_string();
+                let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
+                let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
+                let band = uint_a.bitand(uint_b);
+                Fr::from_str(band.to_string().as_str()).unwrap()
+            },
+            Bor => {
+                let bigint_a: BigInteger256 = a.0.into();
+                let bigint_b: BigInteger256 = b.0.into();
+                let string_a = bigint_a.to_string();
+                let string_b = bigint_b.to_string();
+                let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
+                let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
+                let bor = BigInt::from(uint_a | uint_b);
+                Fr::from_str(bor.to_string().as_str()).unwrap()
+            },
+            Bxor => {
+                let bigint_a: BigInteger256 = a.0.into();
+                let bigint_b: BigInteger256 = b.0.into();
+                let string_a = bigint_a.to_string();
+                let string_b = bigint_b.to_string();
+                let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
+                let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
+                let bxor = BigInt::from(uint_a ^ uint_b);
+                Fr::from_str(bxor.to_string().as_str()).unwrap()
+            },
+            Shl => {
+                let bigint_a: BigInteger256 = a.0.into();
+                let bigint_b: BigInteger256 = b.0.into();
+                let string_a = bigint_a.to_string();
+                let string_b = bigint_b.to_string();
+                let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
+                let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
+                let div = compute_shl_uint(uint_a, uint_b);
+                Fr::from_str(div.to_string().as_str()).unwrap()
+            },
+            Div => {
+                let bigint_a: BigInteger256 = a.0.into();
+                let bigint_b: BigInteger256 = b.0.into();
+                let string_a = bigint_a.to_string();
+                let string_b = bigint_b.to_string();
+                let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
+                let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
+                let shl = uint_a.mul_mod(uint_b.inv_mod(M).unwrap(), M);
+                Fr::from_str(shl.to_string().as_str()).unwrap()
+            },
             _ => unimplemented!("operator {:?} not implemented for Montgomery", self),
         }
     }
@@ -321,8 +396,8 @@ pub fn montgomery_form(nodes: &mut [Node]) {
             Constant(c) => *node = MontConstant(Fr::new((*c).into())),
             MontConstant(..) => (),
             Input(..) => (),
-            Op(Add | Sub | Mul, ..) => (),
-            Op(..) => unimplemented!("Operators Montgomery form"),
+            Op(Add | Sub | Mul | Shr | Band | Bor | Bxor | Shl | Div, ..) => (),
+            Op(..) => unimplemented!("Operators Montgomery form {:?}", node),
         }
     }
     eprintln!("Converted to Montgomery form");

@@ -99,6 +99,42 @@ fn binop(op: Operation, to: *mut FrElement, a: *const FrElement, b: *const FrEle
     constant.push(ca && cb);
 }
 
+
+#[allow(warnings)]
+pub unsafe fn Fr_div(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
+    binop(Operation::Div, to, a, b);
+}
+
+#[allow(warnings)]
+pub unsafe fn Fr_pow(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
+    binop(Operation::Pow, to, a, b);
+}
+
+#[allow(warnings)]
+pub unsafe fn Fr_idiv(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
+    binop(Operation::Idiv, to, a, b);
+}
+
+#[allow(warnings)]
+pub unsafe fn Fr_bxor(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
+    binop(Operation::Bxor, to, a, b);
+}
+
+#[allow(warnings)]
+pub unsafe fn Fr_bor(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
+    binop(Operation::Bor, to, a, b);
+}
+
+#[allow(warnings)]
+pub unsafe fn Fr_mod(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
+    binop(Operation::Mod, to, a, b);
+}
+
+#[allow(warnings)]
+pub unsafe fn Fr_land(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
+    binop(Operation::Land, to, a, b);
+}
+
 pub fn Fr_mul(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
     binop(Operation::Mul, to, a, b);
 }

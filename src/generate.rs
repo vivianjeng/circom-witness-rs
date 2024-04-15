@@ -66,13 +66,13 @@ mod ffi {
         unsafe fn Fr_copyn(to: *mut FrElement, a: *const FrElement, n: usize);
         // unsafe fn Fr_neg(to: *mut FrElement, a: *const FrElement);
         // unsafe fn Fr_inv(to: *mut FrElement, a: *const FrElement);
-        // unsafe fn Fr_div(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
+        unsafe fn Fr_div(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
         // unsafe fn Fr_square(to: *mut FrElement, a: *const FrElement);
         unsafe fn Fr_shl(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
         unsafe fn Fr_shr(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
         unsafe fn Fr_band(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
-        // fn Fr_bor(to: &mut FrElement, a: &FrElement, b: &FrElement);
-        // fn Fr_bxor(to: &mut FrElement, a: &FrElement, b: &FrElement);
+        unsafe fn Fr_bor(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
+        unsafe fn Fr_bxor(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
         // fn Fr_bnot(to: &mut FrElement, a: &FrElement);
         unsafe fn Fr_eq(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
         unsafe fn Fr_neq(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
@@ -85,8 +85,10 @@ mod ffi {
         unsafe fn Fr_toInt(a: *mut FrElement) -> u64;
         unsafe fn Fr_lor(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
         unsafe fn print(a: *mut FrElement);
-        // fn Fr_pow(to: &mut FrElement, a: &FrElement, b: &FrElement);
-        // fn Fr_idiv(to: &mut FrElement, a: &FrElement, b: &FrElement);
+        unsafe fn Fr_pow(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
+        unsafe fn Fr_idiv(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
+        unsafe fn Fr_mod(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
+        unsafe fn Fr_land(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
     }
 
     // C++ types and signatures exposed to Rust.
@@ -152,7 +154,12 @@ pub fn get_constants() -> Vec<FrElement> {
         bytes.read_exact(&mut buf);
 
         if typ & 0x80000000 == 0 {
-            constants[i] = field::constant(U256::from(sv));
+            if sv < 0 {
+                constants[i] = field::constant(M-U256::from(-sv));
+            } else {
+                constants[i] = field::constant(U256::from(sv));
+            }
+            
         } else {
             constants[i] =
                 field::constant(U256::from_le_bytes(buf).mul_redc(uint!(1_U256), M, INV));

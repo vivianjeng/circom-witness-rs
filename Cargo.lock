@@ -1118,6 +1118,7 @@ dependencies = [
  "ark-bn254",
  "ark-ff 0.4.2",
  "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
  "byteorder",
  "cxx",
  "cxx-build",
