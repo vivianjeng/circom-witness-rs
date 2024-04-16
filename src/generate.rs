@@ -7,7 +7,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use ffi::InputOutputList;
 use ruint::{aliases::U256, uint};
 use serde::{Deserialize, Serialize};
-use std::{io::Read, time::Instant};
+use std::{env, io::Read, path::Path, time::Instant};
 
 #[cxx::bridge]
 mod ffi {
@@ -220,7 +220,7 @@ pub fn build_witness() -> eyre::Result<()> {
     let total_input_len =
         (ffi::get_main_input_signal_no() + ffi::get_main_input_signal_start()) as usize;
 
-    for i in 0..total_input_len {
+    for i in 0..total_input_len - 1 {
         signal_values[i + 1] = field::input(i + 1, uint!(0_U256));
     }
 
@@ -254,10 +254,14 @@ pub fn build_witness() -> eyre::Result<()> {
     graph::optimize(&mut nodes, &mut signals);
 
     // Store graph to file.
+    let witness_cpp = env::var("WITNESS_CPP").unwrap();
+    let circuit_file = Path::new(&witness_cpp);
+    let circuit_name = circuit_file.file_stem().unwrap().to_str().unwrap();
     let input_map = get_input_hash_map();
     let bytes = postcard::to_stdvec(&(&nodes, &signals, &input_map)).unwrap();
     eprintln!("Graph size: {} bytes", bytes.len());
-    std::fs::write("graph.bin", bytes).unwrap();
+    let file_name = format!("{}.bin", circuit_name);
+    std::fs::write(&file_name, bytes).unwrap();
 
     // Evaluate the graph.
     let input_len = (ffi::get_main_input_signal_no() + ffi::get_main_input_signal_start()) as usize; // TODO: fetch from file
