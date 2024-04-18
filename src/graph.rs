@@ -55,6 +55,7 @@ pub enum Operation {
     Mod,
     Land,
     Div,
+    Neg,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -64,6 +65,7 @@ pub enum Node {
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     MontConstant(Fr),
     Op(Operation, usize, usize),
+    SingleOp(Operation, usize),
 }
 
 impl Operation {
@@ -90,6 +92,14 @@ impl Operation {
             Mod => U256::from(a % b),
             Land => U256::from(a != U256::ZERO && b != U256::ZERO),
             Div => a.mul_mod(b.inv_mod(M).unwrap(), M),
+            _ => unimplemented!("operator {:?} not implemented", self),
+        }
+    }
+
+    pub fn single_eval(&self, a: U256) -> U256 {
+        use Operation::*;
+        match self {
+            Neg => U256::ZERO.add_mod(M - a, M),
             _ => unimplemented!("operator {:?} not implemented", self),
         }
     }
@@ -160,6 +170,15 @@ impl Operation {
                 let shl = uint_a.mul_mod(uint_b.inv_mod(M).unwrap(), M);
                 Fr::from_str(shl.to_string().as_str()).unwrap()
             }
+            Neq => Fr::from(a != b),
+            Eq => Fr::from(a == b),
+            _ => unimplemented!("operator {:?} not implemented for Montgomery", self),
+        }
+    }
+    pub fn single_eval_fr(&self, a: Fr) -> Fr {
+        use Operation::*;
+        match self {
+            Neg => Fr::from(0) - a,
             _ => unimplemented!("operator {:?} not implemented for Montgomery", self),
         }
     }
@@ -207,6 +226,7 @@ pub fn evaluate(nodes: &[Node], inputs: &[U256], outputs: &[usize]) -> Vec<U256>
             Node::MontConstant(c) => c,
             Node::Input(i) => Fr::new(inputs[i].into()),
             Node::Op(op, a, b) => op.eval_fr(values[a], values[b]),
+            Node::SingleOp(op, a) => op.single_eval_fr(values[a]),
         };
         values.push(value);
     }
@@ -264,6 +284,9 @@ pub fn tree_shake(nodes: &mut Vec<Node>, outputs: &mut [usize]) {
                 used[a] = true;
                 used[b] = true;
             }
+            if let Node::SingleOp(_, a) = nodes[i] {
+                used[a] = true;
+            }
         }
     }
 
@@ -293,6 +316,9 @@ pub fn tree_shake(nodes: &mut Vec<Node>, outputs: &mut [usize]) {
             *a = renumber[*a].unwrap();
             *b = renumber[*b].unwrap();
         }
+        if let Node::SingleOp(_, a) = node {
+            *a = renumber[*a].unwrap();
+        }
     }
     for output in outputs.iter_mut() {
         *output = renumber[*output].unwrap();
@@ -319,6 +345,7 @@ fn random_eval(nodes: &mut Vec<Node>) -> Vec<U256> {
             // Since the field is large, by Swartz-Zippel if
             // two values are the same then they are likely algebraically equal.
             Node::Op(op @ (Add | Sub | Mul), a, b) => op.eval(values[*a], values[*b]),
+            Node::SingleOp(op @ Neg, a) => op.single_eval(values[*a]),
 
             // Input and non-algebraic ops are random functions
             // TODO: https://github.com/recmo/uint/issues/95 and use .gen_range(..M)
@@ -326,6 +353,7 @@ fn random_eval(nodes: &mut Vec<Node>) -> Vec<U256> {
             Node::Op(op, a, b) => *prfs
                 .entry((*op, values[*a], values[*b]))
                 .or_insert_with(|| rng.gen::<U256>() % M),
+            _ => unimplemented!("node {:?}", node),
         };
         values.push(value);
     }
@@ -396,8 +424,10 @@ pub fn montgomery_form(nodes: &mut [Node]) {
             Constant(c) => *node = MontConstant(Fr::new((*c).into())),
             MontConstant(..) => (),
             Input(..) => (),
-            Op(Add | Sub | Mul | Shr | Band | Bor | Bxor | Shl | Div, ..) => (),
+            Op(Add | Sub | Mul | Shr | Band | Bor | Bxor | Shl | Div | Neq | Eq, ..) => (),
+            SingleOp(Neg, ..) => (),
             Op(..) => unimplemented!("Operators Montgomery form {:?}", node),
+            SingleOp(..) => unimplemented!("Single operators Montgomery form {:?}", node),
         }
     }
     eprintln!("Converted to Montgomery form");
