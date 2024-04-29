@@ -56,6 +56,7 @@ pub enum Operation {
     Land,
     Div,
     Neg,
+    Bnot,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -66,6 +67,7 @@ pub enum Node {
     MontConstant(Fr),
     Op(Operation, usize, usize),
     SingleOp(Operation, usize),
+    Select(usize, usize, usize),
 }
 
 impl Operation {
@@ -100,6 +102,7 @@ impl Operation {
         use Operation::*;
         match self {
             Neg => U256::ZERO.add_mod(M - a, M),
+            Bnot => U256::from(!a),
             _ => unimplemented!("operator {:?} not implemented", self),
         }
     }
@@ -167,7 +170,14 @@ impl Operation {
                 let string_b = bigint_b.to_string();
                 let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
                 let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
-                let shl = uint_a.mul_mod(uint_b.inv_mod(M).unwrap(), M);
+                // If the divisor is zero, return zero
+                // We need to build the graph with all witness even if the input (default = 0) is invalid
+                let div = if uint_b == U256::ZERO {
+                    U256::ZERO
+                } else {
+                    uint_b.inv_mod(M).unwrap()
+                };
+                let shl = uint_a.mul_mod(div, M);
                 Fr::from_str(shl.to_string().as_str()).unwrap()
             }
             Neq => Fr::from(a != b),
@@ -227,6 +237,13 @@ pub fn evaluate(nodes: &[Node], inputs: &[U256], outputs: &[usize]) -> Vec<U256>
             Node::Input(i) => Fr::new(inputs[i].into()),
             Node::Op(op, a, b) => op.eval_fr(values[a], values[b]),
             Node::SingleOp(op, a) => op.single_eval_fr(values[a]),
+            Node::Select(s, a, b) => {
+                if values[s] == Fr::new(U256::ZERO.into()) {
+                    values[a]
+                } else {
+                    values[b]
+                }
+            }
         };
         values.push(value);
     }
@@ -287,6 +304,11 @@ pub fn tree_shake(nodes: &mut Vec<Node>, outputs: &mut [usize]) {
             if let Node::SingleOp(_, a) = nodes[i] {
                 used[a] = true;
             }
+            if let Node::Select(to, a, b) = nodes[i] {
+                used[to] = true;
+                used[a] = true;
+                used[b] = true;
+            }
         }
     }
 
@@ -318,6 +340,11 @@ pub fn tree_shake(nodes: &mut Vec<Node>, outputs: &mut [usize]) {
         }
         if let Node::SingleOp(_, a) = node {
             *a = renumber[*a].unwrap();
+        }
+        if let Node::Select(to, a, b) = node {
+            *to = renumber[*to].unwrap();
+            *a = renumber[*a].unwrap();
+            *b = renumber[*b].unwrap();
         }
     }
     for output in outputs.iter_mut() {
@@ -353,6 +380,14 @@ fn random_eval(nodes: &mut Vec<Node>) -> Vec<U256> {
             Node::Op(op, a, b) => *prfs
                 .entry((*op, values[*a], values[*b]))
                 .or_insert_with(|| rng.gen::<U256>() % M),
+            Node::Select(op, a, b) => {
+                let s = values[*op];
+                if s == U256::ZERO {
+                    values[*a]
+                } else {
+                    values[*b]
+                }
+            }
             _ => unimplemented!("node {:?}", node),
         };
         values.push(value);
@@ -428,6 +463,7 @@ pub fn montgomery_form(nodes: &mut [Node]) {
             SingleOp(Neg, ..) => (),
             Op(..) => unimplemented!("Operators Montgomery form {:?}", node),
             SingleOp(..) => unimplemented!("Single operators Montgomery form {:?}", node),
+            Select(..) => unimplemented!("Select Montgomery form {:?}", node),
         }
     }
     eprintln!("Converted to Montgomery form");

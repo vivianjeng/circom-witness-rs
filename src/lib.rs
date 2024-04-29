@@ -177,6 +177,35 @@ mod tests {
     }
 
     #[test]
+    fn test_iszero_calc_witness() {
+        const GRAPH_BYTES: &[u8] = include_bytes!("../isZero.bin");
+        let witness_graph = init_graph(GRAPH_BYTES).unwrap();
+
+        let mut inputs = HashMap::new();
+        let a = 2;
+        inputs.insert("in".to_string(), vec![BigInt::from(a as u32)]);
+
+        let inputs_u256: HashMap<String, Vec<U256>> = inputs
+            .into_iter()
+            .map(|(k, v)| {
+                (
+                    k,
+                    v.into_iter()
+                        .map(|x| U256::from_str(&x.to_string()).unwrap())
+                        .collect(),
+                )
+            })
+            .collect();
+
+        let witness: Vec<String> = calculate_witness(inputs_u256, &witness_graph)
+            .unwrap()
+            .into_iter()
+            .map(|x| x.to_string())
+            .collect();
+        println!("{:?}", witness);
+    }
+
+    #[test]
     fn test_keccak256_calc_witness() {
         const GRAPH_BYTES: &[u8] = include_bytes!("../keccak256_256_test.bin");
         let witness_graph = init_graph(GRAPH_BYTES).unwrap();

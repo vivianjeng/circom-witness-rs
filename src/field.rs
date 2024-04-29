@@ -12,6 +12,9 @@ pub const R: U256 = uint!(0x0e0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96
 static NODES: Mutex<Vec<Node>> = Mutex::new(Vec::new());
 static VALUES: Mutex<Vec<U256>> = Mutex::new(Vec::new());
 static CONSTANT: Mutex<Vec<bool>> = Mutex::new(Vec::new());
+static IF_STATES: Mutex<Vec<bool>> = Mutex::new(Vec::new());
+static IF_NODES: Mutex<Vec<usize>> = Mutex::new(Vec::new());
+static SELECTOR: Mutex<bool> = Mutex::new(false);
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct FrElement(pub usize);
@@ -92,14 +95,19 @@ fn binop(op: Operation, to: *mut FrElement, a: *const FrElement, b: *const FrEle
     nodes.push(Node::Op(op, a, b));
     *to = nodes.len() - 1;
 
-    let (va, vb) = (values[a], values[b]);
-    values.push(op.eval(va, vb));
-
     let (ca, cb) = (constant[a], constant[b]);
     constant.push(ca && cb);
+
+    let (va, vb) = (values[a], values[b]);
+
+    if ca && cb {
+        values.push(op.eval(va, vb));
+    } else {
+        values.push(U256::ZERO);
+    }
 }
 
-fn op(op: Operation, to: *mut FrElement, a: *const FrElement) {
+fn single_op(op: Operation, to: *mut FrElement, a: *const FrElement) {
     let mut nodes = NODES.lock().unwrap();
     let mut values = VALUES.lock().unwrap();
     let mut constant = CONSTANT.lock().unwrap();
@@ -169,8 +177,42 @@ pub unsafe fn Fr_sub(to: *mut FrElement, a: *const FrElement, b: *const FrElemen
 
 #[allow(warnings)]
 pub fn Fr_copy(to: *mut FrElement, a: *const FrElement) {
-    unsafe {
-        *to = *a;
+    let mut if_nodes = IF_NODES.lock().unwrap();
+    let mut selector = SELECTOR.lock().unwrap();
+    if if_nodes.len() > 0 && *selector == false {
+        *selector = true;
+        unsafe {
+            *to = *a;
+        }
+    } else if *selector {
+        let mut nodes = NODES.lock().unwrap();
+        let mut values = VALUES.lock().unwrap();
+        let mut constant = CONSTANT.lock().unwrap();
+        let mut if_states = IF_STATES.lock().unwrap();
+        assert_eq!(nodes.len(), values.len());
+        assert_eq!(nodes.len(), constant.len());
+
+        // if there is an if_node, the index should be selected from the if_node
+        // create another node to select the index
+        let (if_index, else_index) = unsafe { ((*a).0, (*to).0) };
+        nodes.push(Node::Select(
+            if_nodes[if_nodes.len() - 1],
+            if_index,
+            else_index,
+        ));
+        let value = values[if_nodes[if_nodes.len() - 1]] * values[if_index]
+            + values[if_nodes.len() - 1] * values[else_index];
+        values.push(value);
+        constant.push(false);
+        *selector = false;
+        if_nodes.pop();
+        unsafe {
+            *to = FrElement(nodes.len() - 1);
+        }
+    } else {
+        unsafe {
+            *to = *a;
+        }
     }
 }
 
@@ -218,7 +260,11 @@ pub unsafe fn Fr_toInt(a: *const FrElement) -> u64 {
     let a = unsafe { (*a).0 };
     assert!(a < nodes.len());
     assert!(constant[a]);
-    values[a].try_into().unwrap()
+    let res = values[a].try_into();
+    match res {
+        Ok(v) => v,
+        _ => 0u64,
+    }
 }
 
 pub unsafe fn print(a: *const FrElement) {
@@ -226,16 +272,32 @@ pub unsafe fn print(a: *const FrElement) {
 }
 
 pub fn Fr_isTrue(a: *mut FrElement) -> bool {
-    let nodes = NODES.lock().unwrap();
-    let values = VALUES.lock().unwrap();
-    let constant = CONSTANT.lock().unwrap();
+    let mut nodes = NODES.lock().unwrap();
+    let mut values = VALUES.lock().unwrap();
+    let mut constant = CONSTANT.lock().unwrap();
+    let mut if_states = IF_STATES.lock().unwrap();
+    let mut if_nodes = IF_NODES.lock().unwrap();
     assert_eq!(nodes.len(), values.len());
     assert_eq!(nodes.len(), constant.len());
+    // let a = unsafe { (*a).0 };
+    // assert!(a < nodes.len());
+    // assert!(constant[a]);
+    // values[a] != U256::ZERO
 
-    let a = unsafe { (*a).0 };
-    assert!(a < nodes.len());
-    assert!(constant[a]);
-    values[a] != U256::ZERO
+    let unsize_a = unsafe { (*a).0 };
+    assert!(unsize_a < nodes.len());
+    if constant[unsize_a] {
+        values[unsize_a] != U256::ZERO
+    } else {
+        if if_states.len() == 0 {
+            if_states.push(true);
+            if_nodes.push(unsize_a);
+            true
+        } else {
+            if_states.pop().unwrap();
+            false
+        }
+    }
 }
 
 pub unsafe fn Fr_eq(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
@@ -279,5 +341,13 @@ pub unsafe fn Fr_band(to: *mut FrElement, a: *const FrElement, b: *const FrEleme
 }
 
 pub unsafe fn Fr_neg(to: *mut FrElement, a: *const FrElement) {
-    op(Operation::Neg, to, a);
+    single_op(Operation::Neg, to, a);
+}
+
+pub unsafe fn Fr_bnot(to: *mut FrElement, a: *const FrElement) {
+    single_op(Operation::Bnot, to, a);
+}
+
+pub unsafe fn Fr_assert(s: bool) {
+    // TODO: implement assert
 }
