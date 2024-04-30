@@ -50,8 +50,7 @@ sed -e 's/FrElement\* signalValues/rust::Vec<FrElement> \&signalValues/g' \
 -e '/trace/d' \
 -e 's/\(ctx,\)\(lvarcall,\)\(myId,\)/\1\&\2\3/g' \
 -e '/^#include/d' \
--e '/Failed assert/d' \
--e 's/assert/Fr_assert/g' \
+-e '/assert/d' \
 -e '/mySubcomponentsParallel/d' \
 -e 's/FrElement lvarcall\[\([0-9]*\)\];/rust::Vec<FrElement> lvarcall = create_vec(\1);/g' \
 -e 's/,FrElement\* lvar,/,rust::Vec<FrElement>\& lvar,/g' \
@@ -66,16 +65,45 @@ sed -E -e 's/"([^"]+)"\+ctx->generate_position_array\(([^)]+)\)/generate_positio
 file_path="src/circuit.cc"
 tmp_file=$(mktemp)
 
-Read the file line by line
-while IFS= read -r line; do
+# Initialize an empty array to act as the stack
+stack=()
 
-    if [[ "$line" == *'if(Fr_isTrue'* ]]; then
+# Function to push an element onto the stack
+push() {
+    stack+=("$1")
+    echo "Pushed $1 onto the stack"
+}
+
+# Function to pop an element from the stack
+pop() {
+    if [ ${#stack[@]} -eq 0 ]; then
+        echo "Error: Stack is empty"
+    else
+        top_index=$((${#stack[@]} - 1))  # Get the index of the top element
+        popped_element="${stack[$top_index]}"  # Get the top element of the stack
+        unset 'stack[$top_index]'             # Remove the top element from the stack
+        echo "$popped_element"
+    fi
+}
+
+# Read the file line by line
+while IFS= read -r line; do
+    
+    if [[ "$line" == *'if('* ]]; then
         # Capture the statement
         STATEMENT="${line#if(}"
+        push "$STATEMENT"
         echo "$line" >> "$tmp_file"
         elif [[ "$line" == *'}else{'* ]]; then
-        echo "}if(!$STATEMENT" >> "$tmp_file"
-        # Replace 'else' with the captured STATEMENT
+        # Pop the last element from stack
+        STATEMENT=$(pop)
+        if [[ "$STATEMENT" == *'Fr_isTrue'* ]]; then
+            # Replace 'else' with the captured STATEMENT
+            echo "}if(!$STATEMENT" >> "$tmp_file"
+        else
+            echo "$line" >> $tmp_file
+        fi
+        
     else
         echo "$line" >> "$tmp_file"
         # Output the original line
