@@ -114,8 +114,8 @@ impl Operation {
             Sub => a - b,
             Mul => a * b,
             Shr => {
-                let bigint_a: BigInteger256 = a.0.into();
-                let bigint_b: BigInteger256 = b.0.into();
+                let bigint_a: BigInteger256 = BigInteger256::from(a);
+                let bigint_b: BigInteger256 = BigInteger256::from(b);
                 let string_a = bigint_a.to_string();
                 let string_b = bigint_b.to_string();
                 let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
@@ -124,8 +124,8 @@ impl Operation {
                 Fr::from_str(shift.to_string().as_str()).unwrap()
             }
             Band => {
-                let bigint_a: BigInteger256 = a.0.into();
-                let bigint_b: BigInteger256 = b.0.into();
+                let bigint_a: BigInteger256 = BigInteger256::from(a);
+                let bigint_b: BigInteger256 = BigInteger256::from(b);
                 let string_a = bigint_a.to_string();
                 let string_b = bigint_b.to_string();
                 let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
@@ -134,8 +134,8 @@ impl Operation {
                 Fr::from_str(band.to_string().as_str()).unwrap()
             }
             Bor => {
-                let bigint_a: BigInteger256 = a.0.into();
-                let bigint_b: BigInteger256 = b.0.into();
+                let bigint_a: BigInteger256 = BigInteger256::from(a);
+                let bigint_b: BigInteger256 = BigInteger256::from(b);
                 let string_a = bigint_a.to_string();
                 let string_b = bigint_b.to_string();
                 let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
@@ -144,8 +144,8 @@ impl Operation {
                 Fr::from_str(bor.to_string().as_str()).unwrap()
             }
             Bxor => {
-                let bigint_a: BigInteger256 = a.0.into();
-                let bigint_b: BigInteger256 = b.0.into();
+                let bigint_a: BigInteger256 = BigInteger256::from(a);
+                let bigint_b: BigInteger256 = BigInteger256::from(b);
                 let string_a = bigint_a.to_string();
                 let string_b = bigint_b.to_string();
                 let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
@@ -154,8 +154,8 @@ impl Operation {
                 Fr::from_str(bxor.to_string().as_str()).unwrap()
             }
             Shl => {
-                let bigint_a: BigInteger256 = a.0.into();
-                let bigint_b: BigInteger256 = b.0.into();
+                let bigint_a: BigInteger256 = BigInteger256::from(a);
+                let bigint_b: BigInteger256 = BigInteger256::from(b);
                 let string_a = bigint_a.to_string();
                 let string_b = bigint_b.to_string();
                 let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
@@ -164,8 +164,8 @@ impl Operation {
                 Fr::from_str(div.to_string().as_str()).unwrap()
             }
             Div => {
-                let bigint_a: BigInteger256 = a.0.into();
-                let bigint_b: BigInteger256 = b.0.into();
+                let bigint_a: BigInteger256 = BigInteger256::from(a);
+                let bigint_b: BigInteger256 = BigInteger256::from(b);
                 let string_a = bigint_a.to_string();
                 let string_b = bigint_b.to_string();
                 let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
