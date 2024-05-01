@@ -6,7 +6,8 @@ use std::{
 
 use crate::field::M;
 use ark_bn254::Fr;
-use ark_ff::{BigInt, BigInteger256, PrimeField};
+use ark_ff::{BigInt as ARK_BIGINT, BigInteger256, PrimeField};
+use num_bigint::BigInt;
 use rand::Rng;
 use ruint::aliases::U256;
 use serde::{Deserialize, Serialize};
@@ -71,6 +72,45 @@ pub enum Node {
 }
 
 impl Operation {
+    pub fn eval_bigint(&self, a: BigInt, b: BigInt) -> BigInt {
+        use Operation::*;
+        let m: BigInt = BigInt::from_str(
+            "21888242871839275222246405745257275088548364400416034343698204186575808495617",
+        )
+        .unwrap();
+        match self {
+            Add => (a + b) % m,
+            Sub => (a - b) % m,
+            Mul => (a * b) % m,
+            Lt => BigInt::from((a < b) as i32),
+            Gt => BigInt::from((a > b) as i32),
+            Eq => BigInt::from((a == b) as i32),
+            Leq => BigInt::from((a <= b) as i32),
+            Geq => BigInt::from((a >= b) as i32),
+            Lor => BigInt::from((a != BigInt::from(0) || b != BigInt::from(0)) as i32),
+            Shl => a.shl(u64::from_str(&b.to_string()).unwrap()),
+            Shr => a.shr(u64::from_str(&b.to_string()).unwrap()),
+            Band => a.bitand(b),
+            Mod => a % b,
+            Div => (a / b) % m,
+            Pow => a.modpow(&b, &m),
+            Idiv => (a % m.clone() / b % m.clone()) % m,
+            _ => unimplemented!("operator {:?} not implemented for BigInt", self),
+        }
+    }
+
+    pub fn single_eval_bigint(&self, a: BigInt) -> BigInt {
+        use Operation::*;
+        let m: BigInt = BigInt::from_str(
+            "21888242871839275222246405745257275088548364400416034343698204186575808495617",
+        )
+        .unwrap();
+        match self {
+            Neg => (-a) % m,
+            _ => unimplemented!("operator {:?} not implemented for BigInt", self),
+        }
+    }
+
     pub fn eval(&self, a: U256, b: U256) -> U256 {
         use Operation::*;
         match self {
@@ -140,7 +180,7 @@ impl Operation {
                 let string_b = bigint_b.to_string();
                 let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
                 let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
-                let bor = BigInt::from(uint_a | uint_b);
+                let bor = ARK_BIGINT::from(uint_a | uint_b);
                 Fr::from_str(bor.to_string().as_str()).unwrap()
             }
             Bxor => {
@@ -150,7 +190,7 @@ impl Operation {
                 let string_b = bigint_b.to_string();
                 let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
                 let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
-                let bxor = BigInt::from(uint_a ^ uint_b);
+                let bxor = ARK_BIGINT::from(uint_a ^ uint_b);
                 Fr::from_str(bxor.to_string().as_str()).unwrap()
             }
             Shl => {

@@ -27,6 +27,7 @@ ark-std = { version = "^0.4.0" }
 num-bigint = { version = "=0.4.3", default-features = false, features = [
     "rand",
 ] }
+num-traits = "0.2.18"
 
 [build-dependencies]
 cxx-build = "1.0"
