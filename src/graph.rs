@@ -95,6 +95,8 @@ impl Operation {
             Div => (a / b) % m,
             Pow => a.modpow(&b, &m),
             Idiv => (a % m.clone() / b % m.clone()) % m,
+            Bor => a | b,
+            Bxor => a ^ b,
             _ => unimplemented!("operator {:?} not implemented for BigInt", self),
         }
     }

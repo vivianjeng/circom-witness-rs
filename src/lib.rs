@@ -114,7 +114,7 @@ pub fn calculate_witness(
 }
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, str::FromStr};
+    use std::{collections::HashMap, str::FromStr, time::Instant};
 
     #[cfg(feature = "build-witness")]
     use crate::generate;
@@ -228,6 +228,31 @@ mod tests {
             .collect();
 
         let _ = calculate_witness(inputs_u256, &witness_graph).unwrap();
+    }
+
+    #[test]
+    fn test_sha256_512() {
+        const GRAPH_BYTES: &[u8] = include_bytes!("../sha256_512.bin");
+        let witness_graph = init_graph(GRAPH_BYTES).unwrap();
+
+        let mut inputs = HashMap::new();
+        inputs.insert("in".to_string(), vec![BigInt::from(1 as u32);512]);
+
+        let inputs_u256: HashMap<String, Vec<U256>> = inputs
+            .into_iter()
+            .map(|(k, v)| {
+                (
+                    k,
+                    v.into_iter()
+                        .map(|x| U256::from_str(&x.to_string()).unwrap())
+                        .collect(),
+                )
+            })
+            .collect();
+
+        let now = Instant::now();
+        let _ = calculate_witness(inputs_u256, &witness_graph).unwrap();
+        println!("Elapsed: {:?}", now.elapsed());
     }
 
     #[test]
