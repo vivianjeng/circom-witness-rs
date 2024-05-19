@@ -1126,7 +1126,6 @@ dependencies = [
  "eyre",
  "hex",
  "num-bigint",
- "num-traits",
  "postcard",
  "rand",
  "ruint",

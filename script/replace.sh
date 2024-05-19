@@ -66,54 +66,54 @@ file_path="src/circuit.cc"
 tmp_file=$(mktemp)
 
 # Initialize an empty array to act as the stack
-stack=()
+# stack=()
 
-# Function to push an element onto the stack
-push() {
-    stack+=("$1")
-    echo "Pushed $1 onto the stack"
-}
+# # Function to push an element onto the stack
+# push() {
+#     stack+=("$1")
+#     echo "Pushed $1 onto the stack"
+# }
 
-# Function to pop an element from the stack
-pop() {
-    if [ ${#stack[@]} -eq 0 ]; then
-        echo "Error: Stack is empty"
-    else
-        top_index=$((${#stack[@]} - 1))  # Get the index of the top element
-        popped_element="${stack[$top_index]}"  # Get the top element of the stack
-        unset 'stack[$top_index]'             # Remove the top element from the stack
-        echo "$popped_element"
-    fi
-}
+# # Function to pop an element from the stack
+# pop() {
+#     if [ ${#stack[@]} -eq 0 ]; then
+#         echo "Error: Stack is empty"
+#     else
+#         top_index=$((${#stack[@]} - 1))  # Get the index of the top element
+#         popped_element="${stack[$top_index]}"  # Get the top element of the stack
+#         unset 'stack[$top_index]'             # Remove the top element from the stack
+#         echo "$popped_element"
+#     fi
+# }
 
-# Read the file line by line
-while IFS= read -r line; do
-    
-    if [[ "$line" == *'if('* ]]; then
-        # Capture the statement
-        STATEMENT="${line#if(}"
-        push "$STATEMENT"
-        echo "$line" >> "$tmp_file"
-        elif [[ "$line" == *'}else{'* ]]; then
-        # Pop the last element from stack
-        STATEMENT=$(pop)
-        if [[ "$STATEMENT" == *'Fr_isTrue'* ]]; then
-            # Replace 'else' with the captured STATEMENT
-            echo "}if(!$STATEMENT" >> "$tmp_file"
-        else
-            echo "$line" >> $tmp_file
-        fi
-        
-    else
-        echo "$line" >> "$tmp_file"
-        # Output the original line
-    fi
-done < "src/circuit.cc"
+# # Read the file line by line
+# while IFS= read -r line; do
 
-# Overwrite the original file with the modified content
-mv "$tmp_file" "$file_path"
+#     if [[ "$line" == *'if('* ]]; then
+#         # Capture the statement
+#         STATEMENT="${line#if(}"
+#         push "$STATEMENT"
+#         echo "$line" >> "$tmp_file"
+#         elif [[ "$line" == *'}else{'* ]]; then
+#         # Pop the last element from stack
+#         STATEMENT=$(pop)
+#         if [[ "$STATEMENT" == *'Fr_isTrue'* ]]; then
+#             # Replace 'else' with the captured STATEMENT
+#             echo "}if(!$STATEMENT" >> "$tmp_file"
+#         else
+#             echo "$line" >> $tmp_file
+#         fi
 
-# Remove the temporary file
-rm -f "$tmp_file"
+#     else
+#         echo "$line" >> "$tmp_file"
+#         # Output the original line
+#     fi
+# done < "src/circuit.cc"
+
+# # Overwrite the original file with the modified content
+# mv "$tmp_file" "$file_path"
+
+# # Remove the temporary file
+# rm -f "$tmp_file"
 
 cp "$(echo $filename)_cpp/$filename.dat" src/constants.dat

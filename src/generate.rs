@@ -221,9 +221,102 @@ pub fn build_witness() -> eyre::Result<()> {
     let total_input_len =
         (ffi::get_main_input_signal_no() + ffi::get_main_input_signal_start()) as usize;
 
-    for i in 0..total_input_len - 1 {
-        signal_values[i + 1] = field::input(i + 1, uint!(0_U256));
-    }
+    signal_values[1] = field::input(2, uint!(13792647154200341559_U256));
+    signal_values[2] = field::input(3, uint!(12773492180790982043_U256));
+    signal_values[3] = field::input(4, uint!(13046321649363433702_U256));
+    signal_values[4] = field::input(5, uint!(10174370803876824128_U256));
+    signal_values[5] = field::input(6, uint!(7282572246071034406_U256));
+    signal_values[6] = field::input(7, uint!(1524365412687682781_U256));
+    signal_values[7] = field::input(8, uint!(4900829043004737418_U256));
+    signal_values[8] = field::input(9, uint!(6195884386932410966_U256));
+    signal_values[9] = field::input(10, uint!(13554217876979843574_U256));
+    signal_values[10] = field::input(11, uint!(17902692039595931737_U256));
+    signal_values[11] = field::input(12, uint!(12433028734895890975_U256));
+    signal_values[12] = field::input(13, uint!(15971442058448435996_U256));
+    signal_values[13] = field::input(14, uint!(4591894758077129763_U256));
+    signal_values[14] = field::input(15, uint!(11258250015882429548_U256));
+    signal_values[15] = field::input(16, uint!(16399550288873254981_U256));
+    signal_values[16] = field::input(17, uint!(8246389845141771315_U256));
+    signal_values[17] = field::input(18, uint!(14040203746442788850_U256));
+    signal_values[18] = field::input(19, uint!(7283856864330834987_U256));
+    signal_values[19] = field::input(20, uint!(12297563098718697441_U256));
+    signal_values[20] = field::input(21, uint!(13560928146585163504_U256));
+    signal_values[21] = field::input(22, uint!(7380926829734048483_U256));
+    signal_values[22] = field::input(23, uint!(14591299561622291080_U256));
+    signal_values[23] = field::input(24, uint!(8439722381984777599_U256));
+    signal_values[24] = field::input(25, uint!(17375431987296514829_U256));
+    signal_values[25] = field::input(26, uint!(16727607878674407272_U256));
+    signal_values[26] = field::input(27, uint!(3233954801381564296_U256));
+    signal_values[27] = field::input(28, uint!(17255435698225160983_U256));
+    signal_values[28] = field::input(29, uint!(15093748890170255670_U256));
+    signal_values[29] = field::input(30, uint!(15810389980847260072_U256));
+    signal_values[30] = field::input(31, uint!(11120056430439037392_U256));
+    signal_values[31] = field::input(32, uint!(5866130971823719482_U256));
+    signal_values[32] = field::input(33, uint!(13327552690270163501_U256));
+    signal_values[33] = field::input(34, uint!(3582320600048169363_U256));
+    signal_values[34] = field::input(35, uint!(7163546589759624213_U256));
+    signal_values[35] = field::input(36, uint!(18262551396327275695_U256));
+    signal_values[36] = field::input(37, uint!(4479772254206047016_U256));
+    signal_values[37] = field::input(38, uint!(1970274621151677644_U256));
+    signal_values[38] = field::input(39, uint!(6547632513799968987_U256));
+    signal_values[39] = field::input(40, uint!(921117808165172908_U256));
+    signal_values[40] = field::input(41, uint!(7155116889028933260_U256));
+    signal_values[41] = field::input(42, uint!(16769940396381196125_U256));
+    signal_values[42] = field::input(43, uint!(17141182191056257954_U256));
+    signal_values[43] = field::input(44, uint!(4376997046052607007_U256));
+    signal_values[44] = field::input(45, uint!(17471823348423771450_U256));
+    signal_values[45] = field::input(46, uint!(16282311012391954891_U256));
+    signal_values[46] = field::input(47, uint!(70286524413490741_U256));
+    signal_values[47] = field::input(48, uint!(1588836847166444745_U256));
+    signal_values[48] = field::input(49, uint!(15693430141227594668_U256));
+    signal_values[49] = field::input(50, uint!(13832254169115286697_U256));
+    signal_values[50] = field::input(51, uint!(15936550641925323613_U256));
+    signal_values[51] = field::input(52, uint!(323842208142565220_U256));
+    signal_values[52] = field::input(53, uint!(6558662646882345749_U256));
+    signal_values[53] = field::input(54, uint!(15268061661646212265_U256));
+    signal_values[54] = field::input(55, uint!(14962976685717212593_U256));
+    signal_values[55] = field::input(56, uint!(15773505053543368901_U256));
+    signal_values[56] = field::input(57, uint!(9586594741348111792_U256));
+    signal_values[57] = field::input(58, uint!(1455720481014374292_U256));
+    signal_values[58] = field::input(59, uint!(13945813312010515080_U256));
+    signal_values[59] = field::input(60, uint!(6352059456732816887_U256));
+    signal_values[60] = field::input(61, uint!(17556873002865047035_U256));
+    signal_values[61] = field::input(62, uint!(2412591065060484384_U256));
+    signal_values[62] = field::input(63, uint!(11512123092407778330_U256));
+    signal_values[63] = field::input(64, uint!(8499281165724578877_U256));
+    signal_values[64] = field::input(65, uint!(12768005853882726493_U256));
+    signal_values[65] = field::input(66, uint!(18114495772705111902_U256));
+    signal_values[66] = field::input(67, uint!(2254271930739856077_U256));
+    signal_values[67] = field::input(68, uint!(2068851770_U256));
+    signal_values[68] = field::input(69, uint!(0_U256));
+    signal_values[69] = field::input(70, uint!(0_U256));
+    signal_values[70] = field::input(71, uint!(0_U256));
+    signal_values[71] = field::input(72, uint!(0_U256));
+    signal_values[72] = field::input(73, uint!(0_U256));
+    signal_values[73] = field::input(74, uint!(0_U256));
+    signal_values[74] = field::input(75, uint!(0_U256));
+    signal_values[75] = field::input(76, uint!(0_U256));
+    signal_values[76] = field::input(77, uint!(0_U256));
+    signal_values[77] = field::input(78, uint!(0_U256));
+    signal_values[78] = field::input(79, uint!(0_U256));
+    signal_values[79] = field::input(80, uint!(0_U256));
+    signal_values[80] = field::input(81, uint!(0_U256));
+    signal_values[81] = field::input(82, uint!(0_U256));
+    signal_values[82] = field::input(83, uint!(0_U256));
+    signal_values[83] = field::input(84, uint!(0_U256));
+    signal_values[84] = field::input(85, uint!(0_U256));
+    signal_values[85] = field::input(86, uint!(0_U256));
+    signal_values[86] = field::input(87, uint!(0_U256));
+    signal_values[87] = field::input(88, uint!(0_U256));
+    signal_values[88] = field::input(89, uint!(0_U256));
+    signal_values[89] = field::input(90, uint!(0_U256));
+    signal_values[90] = field::input(91, uint!(0_U256));
+    signal_values[91] = field::input(92, uint!(0_U256));
+    signal_values[92] = field::input(93, uint!(0_U256));
+    signal_values[93] = field::input(94, uint!(0_U256));
+    signal_values[94] = field::input(95, uint!(0_U256));
+    signal_values[95] = field::input(96, uint!(0_U256));
+    signal_values[96] = field::input(97, uint!(0_U256));
 
     let mut ctx = ffi::Circom_CalcWit {
         signalValues: signal_values,
@@ -276,6 +369,7 @@ pub fn build_witness() -> eyre::Result<()> {
         }
     }
 
+    println!("{:?}", inputs.len());
     let now = Instant::now();
     for _ in 0..10 {
         _ = graph::evaluate(&nodes, &inputs, &signals);

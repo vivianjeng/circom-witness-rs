@@ -17,6 +17,7 @@ static CONSTANT: Mutex<Vec<bool>> = Mutex::new(Vec::new());
 static IF_STATES: Mutex<Vec<bool>> = Mutex::new(Vec::new());
 static IF_NODES: Mutex<Vec<usize>> = Mutex::new(Vec::new());
 static SELECTOR: Mutex<bool> = Mutex::new(false);
+static TRUE_COUNT: Mutex<u8> = Mutex::new(0);
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct FrElement(pub usize);
@@ -101,6 +102,7 @@ fn binop(op: Operation, to: *mut FrElement, a: *const FrElement, b: *const FrEle
     assert!(b < nodes.len());
     nodes.push(Node::Op(op, a, b));
     *to = nodes.len() - 1;
+    println!(" {:?} {} {} {}", op, a, b, to);
 
     let (ca, cb) = (constant[a], constant[b]);
     constant.push(ca && cb);
@@ -223,6 +225,7 @@ pub fn Fr_copy(to: *mut FrElement, a: *const FrElement) {
             if_index,
             else_index,
         ));
+        println!("if else {:?} {:?}", if_index, else_index);
         let value = values[if_nodes[if_nodes.len() - 1]] * values[if_index]
             + values[if_nodes.len() - 1] * values[else_index];
         let value_bigint = values_bigint[if_nodes[if_nodes.len() - 1]].clone()
@@ -286,7 +289,7 @@ pub unsafe fn Fr_toInt(a: *const FrElement) -> u64 {
 
     let a = unsafe { (*a).0 };
     assert!(a < nodes.len());
-    assert!(constant[a]);
+    // assert!(constant[a]);
     let res = values[a].try_into();
     match res {
         Ok(v) => v,
@@ -314,19 +317,19 @@ pub fn Fr_isTrue(a: *mut FrElement) -> bool {
 
     let unsize_a = unsafe { (*a).0 };
     assert!(unsize_a < nodes.len());
-    if constant[unsize_a] {
-        values_bigint[unsize_a] != BigInt::from(0)
-        // values[unsize_a] != U256::ZERO
-    } else {
-        if if_states.len() == 0 {
-            if_states.push(true);
-            if_nodes.push(unsize_a);
-            true
-        } else {
-            if_states.pop().unwrap();
-            false
-        }
-    }
+    // if constant[unsize_a] {
+    values_bigint[unsize_a] != BigInt::from(0)
+    // values[unsize_a] != U256::ZERO
+    // } else {
+    //     if if_states.len() == 0 {
+    //         if_states.push(true);
+    //         if_nodes.push(unsize_a);
+    //         true
+    //     } else {
+    //         if_states.pop().unwrap();
+    //         false
+    //     }
+    // }
 }
 
 pub unsafe fn Fr_eq(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
