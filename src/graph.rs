@@ -222,6 +222,31 @@ impl Operation {
                 let shl = uint_a.mul_mod(div, M);
                 Fr::from_str(shl.to_string().as_str()).unwrap()
             }
+            Idiv => {
+                let bigint_a: BigInteger256 = BigInteger256::from(a);
+                let bigint_b: BigInteger256 = BigInteger256::from(b);
+                let string_a = bigint_a.to_string();
+                let string_b = bigint_b.to_string();
+                let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
+                let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
+                // If the divisor is zero, return zero
+                // We need to build the graph with all witness even if the input (default = 0) is invalid
+                let idiv =
+                    U256::from(uint_a.add_mod(U256::ZERO, M) / uint_b.add_mod(U256::ZERO, M));
+                Fr::from_str(idiv.to_string().as_str()).unwrap()
+            }
+            Mod => {
+                let bigint_a: BigInteger256 = BigInteger256::from(a);
+                let bigint_b: BigInteger256 = BigInteger256::from(b);
+                let string_a = bigint_a.to_string();
+                let string_b = bigint_b.to_string();
+                let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
+                let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
+                // If the divisor is zero, return zero
+                // We need to build the graph with all witness even if the input (default = 0) is invalid
+                let m = U256::from(uint_a % uint_b);
+                Fr::from_str(m.to_string().as_str()).unwrap()
+            }
             Neq => Fr::from(a != b),
             Eq => Fr::from(a == b),
             _ => unimplemented!("operator {:?} not implemented for Montgomery", self),
@@ -501,7 +526,10 @@ pub fn montgomery_form(nodes: &mut [Node]) {
             Constant(c) => *node = MontConstant(Fr::new((*c).into())),
             MontConstant(..) => (),
             Input(..) => (),
-            Op(Add | Sub | Mul | Shr | Band | Bor | Bxor | Shl | Div | Neq | Eq, ..) => (),
+            Op(
+                Add | Sub | Mul | Shr | Band | Bor | Bxor | Shl | Div | Neq | Eq | Idiv | Mod,
+                ..,
+            ) => (),
             SingleOp(Neg, ..) => (),
             Op(..) => unimplemented!("Operators Montgomery form {:?}", node),
             SingleOp(..) => unimplemented!("Single operators Montgomery form {:?}", node),

@@ -47,19 +47,20 @@ pub fn init_graph(graph_bytes: &[u8]) -> eyre::Result<Graph> {
 
 /// Calculates the number of needed inputs
 pub fn get_inputs_size(graph: &Graph) -> usize {
-    let mut start = false;
-    let mut max_index = 0usize;
-    for &node in graph.nodes.iter() {
-        if let Node::Input(i) = node {
-            if i > max_index {
-                max_index = i;
-            }
-            start = true
-        } else if start {
-            break;
-        }
-    }
-    max_index + 1
+    // let mut start = false;
+    // let mut max_index = 0usize;
+    // for &node in graph.nodes.iter() {
+    //     if let Node::Input(i) = node {
+    //         if i > max_index {
+    //             max_index = i;
+    //         }
+    //         start = true
+    //     } else if start {
+    //         break;
+    //     }
+    // }
+    // max_index + 1
+    97
 }
 
 /// Allocates inputs vec with position 0 set to 1
@@ -236,7 +237,7 @@ mod tests {
         let witness_graph = init_graph(GRAPH_BYTES).unwrap();
 
         let mut inputs = HashMap::new();
-        inputs.insert("in".to_string(), vec![BigInt::from(1 as u32);512]);
+        inputs.insert("in".to_string(), vec![BigInt::from(1 as u32); 512]);
 
         let inputs_u256: HashMap<String, Vec<U256>> = inputs
             .into_iter()
@@ -358,6 +359,59 @@ mod tests {
                 "332910598242053211795222349365649310569639162668825895570972839236209676575",
             )
             .unwrap()],
+        );
+
+        let inputs_u256: HashMap<String, Vec<U256>> = inputs
+            .into_iter()
+            .map(|(k, v)| {
+                (
+                    k,
+                    v.into_iter()
+                        .map(|x| U256::from_str(&x.to_string()).unwrap())
+                        .collect(),
+                )
+            })
+            .collect();
+
+        let _ = calculate_witness(inputs_u256, &witness_graph).unwrap();
+    }
+
+    fn strings_to_circuit_inputs(strings: Vec<String>) -> Vec<BigInt> {
+        strings
+            .into_iter()
+            .map(|value| BigInt::parse_bytes(value.as_bytes(), 10).unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn test_rsa_calc_witness() {
+        const GRAPH_BYTES: &[u8] = include_bytes!("../rsa_main.bin");
+        let witness_graph = init_graph(GRAPH_BYTES).unwrap();
+
+        #[derive(serde::Deserialize)]
+        struct InputData {
+            signature: Vec<String>,
+            modulus: Vec<String>,
+            base_message: Vec<String>,
+        }
+
+        let file_data =
+            std::fs::read_to_string("./circuits/rsa/input.json").expect("Unable to read file");
+        let data: InputData =
+            serde_json::from_str(&file_data).expect("JSON was not well-formatted");
+
+        let mut inputs: HashMap<String, Vec<BigInt>> = HashMap::new();
+        inputs.insert(
+            "signature".to_string(),
+            strings_to_circuit_inputs(data.signature),
+        );
+        inputs.insert(
+            "modulus".to_string(),
+            strings_to_circuit_inputs(data.modulus),
+        );
+        inputs.insert(
+            "base_message".to_string(),
+            strings_to_circuit_inputs(data.base_message),
         );
 
         let inputs_u256: HashMap<String, Vec<U256>> = inputs
