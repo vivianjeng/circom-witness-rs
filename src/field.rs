@@ -1,6 +1,7 @@
 use crate::graph::{Node, Operation};
+use num_bigint::BigInt;
 use ruint::{aliases::U256, uint};
-use std::{ptr, sync::Mutex};
+use std::{ptr, str::FromStr, sync::Mutex};
 
 pub const M: U256 =
     uint!(21888242871839275222246405745257275088548364400416034343698204186575808495617_U256);
@@ -11,7 +12,11 @@ pub const R: U256 = uint!(0x0e0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96
 
 static NODES: Mutex<Vec<Node>> = Mutex::new(Vec::new());
 static VALUES: Mutex<Vec<U256>> = Mutex::new(Vec::new());
+static VALUES_BIGINT: Mutex<Vec<BigInt>> = Mutex::new(Vec::new());
 static CONSTANT: Mutex<Vec<bool>> = Mutex::new(Vec::new());
+static IF_STATES: Mutex<Vec<bool>> = Mutex::new(Vec::new());
+static IF_NODES: Mutex<Vec<usize>> = Mutex::new(Vec::new());
+static SELECTOR: Mutex<bool> = Mutex::new(false);
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct FrElement(pub usize);
@@ -54,12 +59,14 @@ pub fn undefined() -> FrElement {
 pub fn constant(c: U256) -> FrElement {
     let mut nodes = NODES.lock().unwrap();
     let mut values = VALUES.lock().unwrap();
+    let mut values_bigint = VALUES_BIGINT.lock().unwrap();
     let mut constant = CONSTANT.lock().unwrap();
     assert_eq!(nodes.len(), values.len());
     assert_eq!(nodes.len(), constant.len());
 
     nodes.push(Node::Constant(c));
     values.push(c);
+    values_bigint.push(BigInt::from_str(&c.to_string()).unwrap());
     constant.push(true);
 
     FrElement(nodes.len() - 1)
@@ -68,12 +75,14 @@ pub fn constant(c: U256) -> FrElement {
 pub fn input(i: usize, value: U256) -> FrElement {
     let mut nodes = NODES.lock().unwrap();
     let mut values = VALUES.lock().unwrap();
+    let mut values_bigint = VALUES_BIGINT.lock().unwrap();
     let mut constant = CONSTANT.lock().unwrap();
     assert_eq!(nodes.len(), values.len());
     assert_eq!(nodes.len(), constant.len());
 
     nodes.push(Node::Input(i));
     values.push(value);
+    values_bigint.push(BigInt::from_str(&value.to_string()).unwrap());
     constant.push(false);
 
     FrElement(nodes.len() - 1)
@@ -82,6 +91,7 @@ pub fn input(i: usize, value: U256) -> FrElement {
 fn binop(op: Operation, to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
     let mut nodes = NODES.lock().unwrap();
     let mut values = VALUES.lock().unwrap();
+    let mut values_bigint = VALUES_BIGINT.lock().unwrap();
     let mut constant = CONSTANT.lock().unwrap();
     assert_eq!(nodes.len(), values.len());
     assert_eq!(nodes.len(), constant.len());
@@ -92,11 +102,85 @@ fn binop(op: Operation, to: *mut FrElement, a: *const FrElement, b: *const FrEle
     nodes.push(Node::Op(op, a, b));
     *to = nodes.len() - 1;
 
-    let (va, vb) = (values[a], values[b]);
-    values.push(op.eval(va, vb));
-
     let (ca, cb) = (constant[a], constant[b]);
     constant.push(ca && cb);
+
+    let (va, vb) = (values[a], values[b]);
+    let (va_bigint, vb_bigint) = (values_bigint[a].clone(), values_bigint[b].clone());
+
+    if ca && cb {
+        if op == Operation::Idiv {
+            assert_eq!(
+                op.eval_bigint(va_bigint.clone(), vb_bigint.clone())
+                    .to_string(),
+                op.eval(va, vb).to_string(),
+                "{}",
+                format!("{:?} {:?} {:?}", values[a], values[b], op)
+            );
+        }
+        values.push(op.eval(va, vb));
+        values_bigint.push(op.eval_bigint(va_bigint, vb_bigint));
+    } else {
+        values.push(U256::ZERO);
+        values_bigint.push(BigInt::from(0));
+    }
+}
+
+fn single_op(op: Operation, to: *mut FrElement, a: *const FrElement) {
+    let mut nodes = NODES.lock().unwrap();
+    let mut values = VALUES.lock().unwrap();
+    let mut values_bigint = VALUES_BIGINT.lock().unwrap();
+    let mut constant = CONSTANT.lock().unwrap();
+    assert_eq!(nodes.len(), values.len());
+    assert_eq!(nodes.len(), constant.len());
+
+    let (a, to) = unsafe { ((*a).0, &mut (*to).0) };
+    assert!(a < nodes.len());
+    nodes.push(Node::SingleOp(op, a));
+    *to = nodes.len() - 1;
+
+    let va = values[a];
+    let va_bigint = values_bigint[a].clone();
+    values.push(op.single_eval(va));
+    values_bigint.push(op.single_eval_bigint(va_bigint));
+
+    let ca = constant[a];
+    constant.push(ca);
+}
+
+#[allow(warnings)]
+pub unsafe fn Fr_div(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
+    binop(Operation::Div, to, a, b);
+}
+
+#[allow(warnings)]
+pub unsafe fn Fr_pow(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
+    binop(Operation::Pow, to, a, b);
+}
+
+#[allow(warnings)]
+pub unsafe fn Fr_idiv(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
+    binop(Operation::Idiv, to, a, b);
+}
+
+#[allow(warnings)]
+pub unsafe fn Fr_bxor(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
+    binop(Operation::Bxor, to, a, b);
+}
+
+#[allow(warnings)]
+pub unsafe fn Fr_bor(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
+    binop(Operation::Bor, to, a, b);
+}
+
+#[allow(warnings)]
+pub unsafe fn Fr_mod(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
+    binop(Operation::Mod, to, a, b);
+}
+
+#[allow(warnings)]
+pub unsafe fn Fr_land(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
+    binop(Operation::Land, to, a, b);
 }
 
 pub fn Fr_mul(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
@@ -115,8 +199,47 @@ pub unsafe fn Fr_sub(to: *mut FrElement, a: *const FrElement, b: *const FrElemen
 
 #[allow(warnings)]
 pub fn Fr_copy(to: *mut FrElement, a: *const FrElement) {
-    unsafe {
-        *to = *a;
+    let mut if_nodes = IF_NODES.lock().unwrap();
+    let mut selector = SELECTOR.lock().unwrap();
+    if if_nodes.len() > 0 && *selector == false {
+        *selector = true;
+        unsafe {
+            *to = *a;
+        }
+    } else if *selector {
+        let mut nodes = NODES.lock().unwrap();
+        let mut values = VALUES.lock().unwrap();
+        let mut values_bigint = VALUES_BIGINT.lock().unwrap();
+        let mut constant = CONSTANT.lock().unwrap();
+        let mut if_states = IF_STATES.lock().unwrap();
+        assert_eq!(nodes.len(), values.len());
+        assert_eq!(nodes.len(), constant.len());
+
+        // if there is an if_node, the index should be selected from the if_node
+        // create another node to select the index
+        let (if_index, else_index) = unsafe { ((*a).0, (*to).0) };
+        nodes.push(Node::Select(
+            if_nodes[if_nodes.len() - 1],
+            if_index,
+            else_index,
+        ));
+        let value = values[if_nodes[if_nodes.len() - 1]] * values[if_index]
+            + values[if_nodes.len() - 1] * values[else_index];
+        let value_bigint = values_bigint[if_nodes[if_nodes.len() - 1]].clone()
+            * values_bigint[if_index].clone()
+            + values_bigint[if_nodes.len() - 1].clone() * values_bigint[else_index].clone();
+        values.push(value);
+        values_bigint.push(value_bigint);
+        constant.push(false);
+        *selector = false;
+        if_nodes.pop();
+        unsafe {
+            *to = FrElement(nodes.len() - 1);
+        }
+    } else {
+        unsafe {
+            *to = *a;
+        }
     }
 }
 
@@ -164,7 +287,11 @@ pub unsafe fn Fr_toInt(a: *const FrElement) -> u64 {
     let a = unsafe { (*a).0 };
     assert!(a < nodes.len());
     assert!(constant[a]);
-    values[a].try_into().unwrap()
+    let res = values[a].try_into();
+    match res {
+        Ok(v) => v,
+        _ => 0u64,
+    }
 }
 
 pub unsafe fn print(a: *const FrElement) {
@@ -172,16 +299,34 @@ pub unsafe fn print(a: *const FrElement) {
 }
 
 pub fn Fr_isTrue(a: *mut FrElement) -> bool {
-    let nodes = NODES.lock().unwrap();
-    let values = VALUES.lock().unwrap();
-    let constant = CONSTANT.lock().unwrap();
+    let mut nodes = NODES.lock().unwrap();
+    let mut values = VALUES.lock().unwrap();
+    let mut values_bigint = VALUES_BIGINT.lock().unwrap();
+    let mut constant = CONSTANT.lock().unwrap();
+    let mut if_states = IF_STATES.lock().unwrap();
+    let mut if_nodes = IF_NODES.lock().unwrap();
     assert_eq!(nodes.len(), values.len());
     assert_eq!(nodes.len(), constant.len());
+    // let a = unsafe { (*a).0 };
+    // assert!(a < nodes.len());
+    // assert!(constant[a]);
+    // values[a] != U256::ZERO
 
-    let a = unsafe { (*a).0 };
-    assert!(a < nodes.len());
-    assert!(constant[a]);
-    values[a] != U256::ZERO
+    let unsize_a = unsafe { (*a).0 };
+    assert!(unsize_a < nodes.len());
+    if constant[unsize_a] {
+        values_bigint[unsize_a] != BigInt::from(0)
+        // values[unsize_a] != U256::ZERO
+    } else {
+        if if_states.len() == 0 {
+            if_states.push(true);
+            if_nodes.push(unsize_a);
+            true
+        } else {
+            if_states.pop().unwrap();
+            false
+        }
+    }
 }
 
 pub unsafe fn Fr_eq(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
@@ -222,4 +367,16 @@ pub unsafe fn Fr_shr(to: *mut FrElement, a: *const FrElement, b: *const FrElemen
 
 pub unsafe fn Fr_band(to: *mut FrElement, a: *const FrElement, b: *const FrElement) {
     binop(Operation::Band, to, a, b);
+}
+
+pub unsafe fn Fr_neg(to: *mut FrElement, a: *const FrElement) {
+    single_op(Operation::Neg, to, a);
+}
+
+pub unsafe fn Fr_bnot(to: *mut FrElement, a: *const FrElement) {
+    single_op(Operation::Bnot, to, a);
+}
+
+pub unsafe fn Fr_assert(s: bool) {
+    // TODO: implement assert
 }

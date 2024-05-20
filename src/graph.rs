@@ -1,11 +1,13 @@
 use std::{
     collections::HashMap,
     ops::{BitAnd, Shl, Shr},
+    str::FromStr,
 };
 
 use crate::field::M;
 use ark_bn254::Fr;
-use ark_ff::PrimeField;
+use ark_ff::{BigInt as ARK_BIGINT, BigInteger256, PrimeField};
+use num_bigint::BigInt;
 use rand::Rng;
 use ruint::aliases::U256;
 use serde::{Deserialize, Serialize};
@@ -47,6 +49,15 @@ pub enum Operation {
     Shl,
     Shr,
     Band,
+    Pow,
+    Idiv,
+    Bxor,
+    Bor,
+    Mod,
+    Land,
+    Div,
+    Neg,
+    Bnot,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,9 +67,52 @@ pub enum Node {
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     MontConstant(Fr),
     Op(Operation, usize, usize),
+    SingleOp(Operation, usize),
+    Select(usize, usize, usize),
 }
 
 impl Operation {
+    pub fn eval_bigint(&self, a: BigInt, b: BigInt) -> BigInt {
+        use Operation::*;
+        let m: BigInt = BigInt::from_str(
+            "21888242871839275222246405745257275088548364400416034343698204186575808495617",
+        )
+        .unwrap();
+        match self {
+            Add => (a + b) % m,
+            Sub => (a - b) % m,
+            Mul => (a * b) % m,
+            Lt => BigInt::from((a < b) as i32),
+            Gt => BigInt::from((a > b) as i32),
+            Eq => BigInt::from((a == b) as i32),
+            Leq => BigInt::from((a <= b) as i32),
+            Geq => BigInt::from((a >= b) as i32),
+            Lor => BigInt::from((a != BigInt::from(0) || b != BigInt::from(0)) as i32),
+            Shl => a.shl(u64::from_str(&b.to_string()).unwrap()),
+            Shr => a.shr(u64::from_str(&b.to_string()).unwrap()),
+            Band => a.bitand(b),
+            Mod => a % b,
+            Div => (a / b) % m,
+            Pow => a.modpow(&b, &m),
+            Idiv => (a % m.clone() / b % m.clone()) % m,
+            Bor => a | b,
+            Bxor => a ^ b,
+            _ => unimplemented!("operator {:?} not implemented for BigInt", self),
+        }
+    }
+
+    pub fn single_eval_bigint(&self, a: BigInt) -> BigInt {
+        use Operation::*;
+        let m: BigInt = BigInt::from_str(
+            "21888242871839275222246405745257275088548364400416034343698204186575808495617",
+        )
+        .unwrap();
+        match self {
+            Neg => (-a) % m,
+            _ => unimplemented!("operator {:?} not implemented for BigInt", self),
+        }
+    }
+
     pub fn eval(&self, a: U256, b: U256) -> U256 {
         use Operation::*;
         match self {
@@ -75,6 +129,22 @@ impl Operation {
             Shl => compute_shl_uint(a, b),
             Shr => compute_shr_uint(a, b),
             Band => a.bitand(b),
+            Pow => a.pow_mod(b, M),
+            Idiv => U256::from(a.add_mod(U256::ZERO, M) / b.add_mod(U256::ZERO, M)),
+            Bxor => U256::from(a ^ b),
+            Bor => U256::from(a | b),
+            Mod => U256::from(a % b),
+            Land => U256::from(a != U256::ZERO && b != U256::ZERO),
+            Div => a.mul_mod(b.inv_mod(M).unwrap(), M),
+            _ => unimplemented!("operator {:?} not implemented", self),
+        }
+    }
+
+    pub fn single_eval(&self, a: U256) -> U256 {
+        use Operation::*;
+        match self {
+            Neg => U256::ZERO.add_mod(M - a, M),
+            Bnot => U256::from(!a),
             _ => unimplemented!("operator {:?} not implemented", self),
         }
     }
@@ -85,6 +155,82 @@ impl Operation {
             Add => a + b,
             Sub => a - b,
             Mul => a * b,
+            Shr => {
+                let bigint_a: BigInteger256 = BigInteger256::from(a);
+                let bigint_b: BigInteger256 = BigInteger256::from(b);
+                let string_a = bigint_a.to_string();
+                let string_b = bigint_b.to_string();
+                let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
+                let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
+                let shift = compute_shr_uint(uint_a, uint_b);
+                Fr::from_str(shift.to_string().as_str()).unwrap()
+            }
+            Band => {
+                let bigint_a: BigInteger256 = BigInteger256::from(a);
+                let bigint_b: BigInteger256 = BigInteger256::from(b);
+                let string_a = bigint_a.to_string();
+                let string_b = bigint_b.to_string();
+                let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
+                let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
+                let band = uint_a.bitand(uint_b);
+                Fr::from_str(band.to_string().as_str()).unwrap()
+            }
+            Bor => {
+                let bigint_a: BigInteger256 = BigInteger256::from(a);
+                let bigint_b: BigInteger256 = BigInteger256::from(b);
+                let string_a = bigint_a.to_string();
+                let string_b = bigint_b.to_string();
+                let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
+                let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
+                let bor = ARK_BIGINT::from(uint_a | uint_b);
+                Fr::from_str(bor.to_string().as_str()).unwrap()
+            }
+            Bxor => {
+                let bigint_a: BigInteger256 = BigInteger256::from(a);
+                let bigint_b: BigInteger256 = BigInteger256::from(b);
+                let string_a = bigint_a.to_string();
+                let string_b = bigint_b.to_string();
+                let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
+                let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
+                let bxor = ARK_BIGINT::from(uint_a ^ uint_b);
+                Fr::from_str(bxor.to_string().as_str()).unwrap()
+            }
+            Shl => {
+                let bigint_a: BigInteger256 = BigInteger256::from(a);
+                let bigint_b: BigInteger256 = BigInteger256::from(b);
+                let string_a = bigint_a.to_string();
+                let string_b = bigint_b.to_string();
+                let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
+                let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
+                let div = compute_shl_uint(uint_a, uint_b);
+                Fr::from_str(div.to_string().as_str()).unwrap()
+            }
+            Div => {
+                let bigint_a: BigInteger256 = BigInteger256::from(a);
+                let bigint_b: BigInteger256 = BigInteger256::from(b);
+                let string_a = bigint_a.to_string();
+                let string_b = bigint_b.to_string();
+                let uint_a: U256 = U256::from_str(string_a.as_str()).unwrap();
+                let uint_b: U256 = U256::from_str(string_b.as_str()).unwrap();
+                // If the divisor is zero, return zero
+                // We need to build the graph with all witness even if the input (default = 0) is invalid
+                let div = if uint_b == U256::ZERO {
+                    U256::ZERO
+                } else {
+                    uint_b.inv_mod(M).unwrap()
+                };
+                let shl = uint_a.mul_mod(div, M);
+                Fr::from_str(shl.to_string().as_str()).unwrap()
+            }
+            Neq => Fr::from(a != b),
+            Eq => Fr::from(a == b),
+            _ => unimplemented!("operator {:?} not implemented for Montgomery", self),
+        }
+    }
+    pub fn single_eval_fr(&self, a: Fr) -> Fr {
+        use Operation::*;
+        match self {
+            Neg => Fr::from(0) - a,
             _ => unimplemented!("operator {:?} not implemented for Montgomery", self),
         }
     }
@@ -132,6 +278,14 @@ pub fn evaluate(nodes: &[Node], inputs: &[U256], outputs: &[usize]) -> Vec<U256>
             Node::MontConstant(c) => c,
             Node::Input(i) => Fr::new(inputs[i].into()),
             Node::Op(op, a, b) => op.eval_fr(values[a], values[b]),
+            Node::SingleOp(op, a) => op.single_eval_fr(values[a]),
+            Node::Select(s, a, b) => {
+                if values[s] == Fr::new(U256::ZERO.into()) {
+                    values[a]
+                } else {
+                    values[b]
+                }
+            }
         };
         values.push(value);
     }
@@ -189,6 +343,14 @@ pub fn tree_shake(nodes: &mut Vec<Node>, outputs: &mut [usize]) {
                 used[a] = true;
                 used[b] = true;
             }
+            if let Node::SingleOp(_, a) = nodes[i] {
+                used[a] = true;
+            }
+            if let Node::Select(to, a, b) = nodes[i] {
+                used[to] = true;
+                used[a] = true;
+                used[b] = true;
+            }
         }
     }
 
@@ -218,6 +380,14 @@ pub fn tree_shake(nodes: &mut Vec<Node>, outputs: &mut [usize]) {
             *a = renumber[*a].unwrap();
             *b = renumber[*b].unwrap();
         }
+        if let Node::SingleOp(_, a) = node {
+            *a = renumber[*a].unwrap();
+        }
+        if let Node::Select(to, a, b) = node {
+            *to = renumber[*to].unwrap();
+            *a = renumber[*a].unwrap();
+            *b = renumber[*b].unwrap();
+        }
     }
     for output in outputs.iter_mut() {
         *output = renumber[*output].unwrap();
@@ -244,6 +414,7 @@ fn random_eval(nodes: &mut Vec<Node>) -> Vec<U256> {
             // Since the field is large, by Swartz-Zippel if
             // two values are the same then they are likely algebraically equal.
             Node::Op(op @ (Add | Sub | Mul), a, b) => op.eval(values[*a], values[*b]),
+            Node::SingleOp(op @ Neg, a) => op.single_eval(values[*a]),
 
             // Input and non-algebraic ops are random functions
             // TODO: https://github.com/recmo/uint/issues/95 and use .gen_range(..M)
@@ -251,6 +422,15 @@ fn random_eval(nodes: &mut Vec<Node>) -> Vec<U256> {
             Node::Op(op, a, b) => *prfs
                 .entry((*op, values[*a], values[*b]))
                 .or_insert_with(|| rng.gen::<U256>() % M),
+            Node::Select(op, a, b) => {
+                let s = values[*op];
+                if s == U256::ZERO {
+                    values[*a]
+                } else {
+                    values[*b]
+                }
+            }
+            _ => unimplemented!("node {:?}", node),
         };
         values.push(value);
     }
@@ -321,8 +501,11 @@ pub fn montgomery_form(nodes: &mut [Node]) {
             Constant(c) => *node = MontConstant(Fr::new((*c).into())),
             MontConstant(..) => (),
             Input(..) => (),
-            Op(Add | Sub | Mul, ..) => (),
-            Op(..) => unimplemented!("Operators Montgomery form"),
+            Op(Add | Sub | Mul | Shr | Band | Bor | Bxor | Shl | Div | Neq | Eq, ..) => (),
+            SingleOp(Neg, ..) => (),
+            Op(..) => unimplemented!("Operators Montgomery form {:?}", node),
+            SingleOp(..) => unimplemented!("Single operators Montgomery form {:?}", node),
+            Select(..) => unimplemented!("Select Montgomery form {:?}", node),
         }
     }
     eprintln!("Converted to Montgomery form");

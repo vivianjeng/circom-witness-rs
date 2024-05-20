@@ -112,3 +112,266 @@ pub fn calculate_witness(
         &graph.signals,
     ))
 }
+#[cfg(test)]
+mod tests {
+    use std::{collections::HashMap, str::FromStr, time::Instant};
+
+    #[cfg(feature = "build-witness")]
+    use crate::generate;
+    use crate::{calculate_witness, init_graph};
+    use num_bigint::BigInt;
+    use ruint::aliases::U256;
+    #[test]
+    fn test_build() {
+        #[cfg(feature = "build-witness")]
+        generate::build_witness();
+    }
+    type CircuitInputs = HashMap<String, Vec<BigInt>>;
+
+    fn bytes_to_bits(bytes: &[u8]) -> Vec<bool> {
+        let mut bits = Vec::new();
+        for &byte in bytes {
+            for j in 0..8 {
+                let bit = (byte >> j) & 1;
+                bits.push(bit == 1);
+            }
+        }
+        bits
+    }
+    fn bytes_to_circuit_inputs(bytes: &[u8]) -> CircuitInputs {
+        let bits = bytes_to_bits(bytes);
+        let big_int_bits = bits
+            .into_iter()
+            .map(|bit| BigInt::from(bit as u8))
+            .collect();
+        let mut inputs = HashMap::new();
+        inputs.insert("in".to_string(), big_int_bits);
+        inputs
+    }
+
+    #[test]
+    fn test_multiplier2_calc_witness() {
+        const GRAPH_BYTES: &[u8] = include_bytes!("../multiplier2.bin");
+        let witness_graph = init_graph(GRAPH_BYTES).unwrap();
+
+        let mut inputs = HashMap::new();
+        let a = 3;
+        let b = 5;
+        inputs.insert("a".to_string(), vec![BigInt::from(a as u32)]);
+        inputs.insert("b".to_string(), vec![BigInt::from(b as u32)]);
+
+        let inputs_u256: HashMap<String, Vec<U256>> = inputs
+            .into_iter()
+            .map(|(k, v)| {
+                (
+                    k,
+                    v.into_iter()
+                        .map(|x| U256::from_str(&x.to_string()).unwrap())
+                        .collect(),
+                )
+            })
+            .collect();
+
+        let witness = calculate_witness(inputs_u256, &witness_graph).unwrap();
+        println!("{:?}", witness);
+    }
+
+    #[test]
+    fn test_iszero_calc_witness() {
+        const GRAPH_BYTES: &[u8] = include_bytes!("../isZero.bin");
+        let witness_graph = init_graph(GRAPH_BYTES).unwrap();
+
+        let mut inputs = HashMap::new();
+        let a = 2;
+        inputs.insert("in".to_string(), vec![BigInt::from(a as u32)]);
+
+        let inputs_u256: HashMap<String, Vec<U256>> = inputs
+            .into_iter()
+            .map(|(k, v)| {
+                (
+                    k,
+                    v.into_iter()
+                        .map(|x| U256::from_str(&x.to_string()).unwrap())
+                        .collect(),
+                )
+            })
+            .collect();
+
+        let witness: Vec<String> = calculate_witness(inputs_u256, &witness_graph)
+            .unwrap()
+            .into_iter()
+            .map(|x| x.to_string())
+            .collect();
+        println!("{:?}", witness);
+    }
+
+    #[test]
+    fn test_keccak256_calc_witness() {
+        const GRAPH_BYTES: &[u8] = include_bytes!("../keccak256_256_test.bin");
+        let witness_graph = init_graph(GRAPH_BYTES).unwrap();
+
+        let input_vec = vec![
+            116, 101, 115, 116, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
+        ];
+        let inputs = bytes_to_circuit_inputs(&input_vec);
+        let inputs_u256: HashMap<String, Vec<U256>> = inputs
+            .into_iter()
+            .map(|(k, v)| {
+                (
+                    k,
+                    v.into_iter()
+                        .map(|x| U256::from_str(&x.to_string()).unwrap())
+                        .collect(),
+                )
+            })
+            .collect();
+
+        let _ = calculate_witness(inputs_u256, &witness_graph).unwrap();
+    }
+
+    #[test]
+    fn test_sha256_512() {
+        const GRAPH_BYTES: &[u8] = include_bytes!("../sha256_512.bin");
+        let witness_graph = init_graph(GRAPH_BYTES).unwrap();
+
+        let mut inputs = HashMap::new();
+        inputs.insert("in".to_string(), vec![BigInt::from(1 as u32);512]);
+
+        let inputs_u256: HashMap<String, Vec<U256>> = inputs
+            .into_iter()
+            .map(|(k, v)| {
+                (
+                    k,
+                    v.into_iter()
+                        .map(|x| U256::from_str(&x.to_string()).unwrap())
+                        .collect(),
+                )
+            })
+            .collect();
+
+        let now = Instant::now();
+        let _ = calculate_witness(inputs_u256, &witness_graph).unwrap();
+        println!("Elapsed: {:?}", now.elapsed());
+    }
+
+    #[test]
+    fn test_semaphore_calc_witness() {
+        const GRAPH_BYTES: &[u8] = include_bytes!("../semaphore.bin");
+        let witness_graph = init_graph(GRAPH_BYTES).unwrap();
+
+        let mut inputs = HashMap::new();
+        inputs.insert(
+            "identityNullifier".to_string(),
+            vec![BigInt::from_str(
+                "4344141139294650952352150677542411196253771789435022697920397562624821372579",
+            )
+            .unwrap()],
+        );
+        inputs.insert(
+            "identityTrapdoor".to_string(),
+            vec![BigInt::from_str(
+                "13438737470856877558282497895860265107676773618458614333401876104011795148243",
+            )
+            .unwrap()],
+        );
+        inputs.insert(
+            "treePathIndices".to_string(),
+            vec![BigInt::from_str("0").unwrap(); 16],
+        );
+        inputs.insert(
+            "treeSiblings".to_string(),
+            vec![
+                BigInt::from_str("0").unwrap(),
+                BigInt::from_str(
+                    "14744269619966411208579211824598458697587494354926760081771325075741142829156",
+                )
+                .unwrap(),
+                BigInt::from_str(
+                    "7423237065226347324353380772367382631490014989348495481811164164159255474657",
+                )
+                .unwrap(),
+                BigInt::from_str(
+                    "11286972368698509976183087595462810875513684078608517520839298933882497716792",
+                )
+                .unwrap(),
+                BigInt::from_str(
+                    "3607627140608796879659380071776844901612302623152076817094415224584923813162",
+                )
+                .unwrap(),
+                BigInt::from_str(
+                    "19712377064642672829441595136074946683621277828620209496774504837737984048981",
+                )
+                .unwrap(),
+                BigInt::from_str(
+                    "20775607673010627194014556968476266066927294572720319469184847051418138353016",
+                )
+                .unwrap(),
+                BigInt::from_str(
+                    "3396914609616007258851405644437304192397291162432396347162513310381425243293",
+                )
+                .unwrap(),
+                BigInt::from_str(
+                    "21551820661461729022865262380882070649935529853313286572328683688269863701601",
+                )
+                .unwrap(),
+                BigInt::from_str(
+                    "6573136701248752079028194407151022595060682063033565181951145966236778420039",
+                )
+                .unwrap(),
+                BigInt::from_str(
+                    "12413880268183407374852357075976609371175688755676981206018884971008854919922",
+                )
+                .unwrap(),
+                BigInt::from_str(
+                    "14271763308400718165336499097156975241954733520325982997864342600795471836726",
+                )
+                .unwrap(),
+                BigInt::from_str(
+                    "20066985985293572387227381049700832219069292839614107140851619262827735677018",
+                )
+                .unwrap(),
+                BigInt::from_str(
+                    "9394776414966240069580838672673694685292165040808226440647796406499139370960",
+                )
+                .unwrap(),
+                BigInt::from_str(
+                    "11331146992410411304059858900317123658895005918277453009197229807340014528524",
+                )
+                .unwrap(),
+                BigInt::from_str(
+                    "15819538789928229930262697811477882737253464456578333862691129291651619515538",
+                )
+                .unwrap(),
+            ],
+        );
+        inputs.insert(
+            "externalNullifier".to_string(),
+            vec![BigInt::from_str(
+                "447413433400125861047685511869182644117539243278160224138376569474905112439",
+            )
+            .unwrap()],
+        );
+        inputs.insert(
+            "signalHash".to_string(),
+            vec![BigInt::from_str(
+                "332910598242053211795222349365649310569639162668825895570972839236209676575",
+            )
+            .unwrap()],
+        );
+
+        let inputs_u256: HashMap<String, Vec<U256>> = inputs
+            .into_iter()
+            .map(|(k, v)| {
+                (
+                    k,
+                    v.into_iter()
+                        .map(|x| U256::from_str(&x.to_string()).unwrap())
+                        .collect(),
+                )
+            })
+            .collect();
+
+        let _ = calculate_witness(inputs_u256, &witness_graph).unwrap();
+    }
+}

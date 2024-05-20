@@ -7,7 +7,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use ffi::InputOutputList;
 use ruint::{aliases::U256, uint};
 use serde::{Deserialize, Serialize};
-use std::{io::Read, time::Instant};
+use std::{env, io::Read, path::Path, time::Instant};
 
 #[cxx::bridge]
 mod ffi {
@@ -64,16 +64,16 @@ mod ffi {
         unsafe fn Fr_sub(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
         unsafe fn Fr_copy(to: *mut FrElement, a: *const FrElement);
         unsafe fn Fr_copyn(to: *mut FrElement, a: *const FrElement, n: usize);
-        // unsafe fn Fr_neg(to: *mut FrElement, a: *const FrElement);
+        unsafe fn Fr_neg(to: *mut FrElement, a: *const FrElement);
         // unsafe fn Fr_inv(to: *mut FrElement, a: *const FrElement);
-        // unsafe fn Fr_div(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
+        unsafe fn Fr_div(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
         // unsafe fn Fr_square(to: *mut FrElement, a: *const FrElement);
         unsafe fn Fr_shl(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
         unsafe fn Fr_shr(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
         unsafe fn Fr_band(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
-        // fn Fr_bor(to: &mut FrElement, a: &FrElement, b: &FrElement);
-        // fn Fr_bxor(to: &mut FrElement, a: &FrElement, b: &FrElement);
-        // fn Fr_bnot(to: &mut FrElement, a: &FrElement);
+        unsafe fn Fr_bor(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
+        unsafe fn Fr_bxor(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
+        unsafe fn Fr_bnot(to: *mut FrElement, a: *const FrElement);
         unsafe fn Fr_eq(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
         unsafe fn Fr_neq(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
         unsafe fn Fr_lt(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
@@ -85,8 +85,11 @@ mod ffi {
         unsafe fn Fr_toInt(a: *mut FrElement) -> u64;
         unsafe fn Fr_lor(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
         unsafe fn print(a: *mut FrElement);
-        // fn Fr_pow(to: &mut FrElement, a: &FrElement, b: &FrElement);
-        // fn Fr_idiv(to: &mut FrElement, a: &FrElement, b: &FrElement);
+        unsafe fn Fr_pow(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
+        unsafe fn Fr_idiv(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
+        unsafe fn Fr_mod(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
+        unsafe fn Fr_land(to: *mut FrElement, a: *const FrElement, b: *const FrElement);
+        unsafe fn Fr_assert(s: bool);
     }
 
     // C++ types and signatures exposed to Rust.
@@ -152,7 +155,11 @@ pub fn get_constants() -> Vec<FrElement> {
         bytes.read_exact(&mut buf);
 
         if typ & 0x80000000 == 0 {
-            constants[i] = field::constant(U256::from(sv));
+            if sv < 0 {
+                constants[i] = field::constant(M - U256::from(-sv));
+            } else {
+                constants[i] = field::constant(U256::from(sv));
+            }
         } else {
             constants[i] =
                 field::constant(U256::from_le_bytes(buf).mul_redc(uint!(1_U256), M, INV));
@@ -214,7 +221,7 @@ pub fn build_witness() -> eyre::Result<()> {
     let total_input_len =
         (ffi::get_main_input_signal_no() + ffi::get_main_input_signal_start()) as usize;
 
-    for i in 0..total_input_len {
+    for i in 0..total_input_len - 1 {
         signal_values[i + 1] = field::input(i + 1, uint!(0_U256));
     }
 
@@ -248,10 +255,14 @@ pub fn build_witness() -> eyre::Result<()> {
     graph::optimize(&mut nodes, &mut signals);
 
     // Store graph to file.
+    let witness_cpp = env::var("WITNESS_CPP").unwrap();
+    let circuit_file = Path::new(&witness_cpp);
+    let circuit_name = circuit_file.file_stem().unwrap().to_str().unwrap();
     let input_map = get_input_hash_map();
     let bytes = postcard::to_stdvec(&(&nodes, &signals, &input_map)).unwrap();
     eprintln!("Graph size: {} bytes", bytes.len());
-    std::fs::write("graph.bin", bytes).unwrap();
+    let file_name = format!("{}.bin", circuit_name);
+    std::fs::write(&file_name, bytes).unwrap();
 
     // Evaluate the graph.
     let input_len = (ffi::get_main_input_signal_no() + ffi::get_main_input_signal_start()) as usize; // TODO: fetch from file
